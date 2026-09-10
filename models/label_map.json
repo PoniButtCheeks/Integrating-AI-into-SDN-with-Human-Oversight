@@ -1,0 +1,21 @@
+{
+  "label_names": [
+    "normal",
+    "ddos",
+    "port_scan"
+  ],
+  "code_to_label": {
+    "0": "normal",
+    "1": "ddos",
+    "2": "port_scan"
+  },
+  "feature_names": [
+    "dst_port",
+    "duration",
+    "total_packets",
+    "total_bytes",
+    "avg_packet_size",
+    "packets_per_sec",
+    "bytes_per_sec"
+  ]
+}
