@@ -26,6 +26,6 @@ def classify(row: dict) -> dict:
     return {"label": spec["code_to_label"][str(code)], "confidence": round(conf, 4)}
 
 if __name__ == "__main__":
-    with open(os.path.join(_HERE, "..", "..", "data", "flow_log.csv")) as f:
+    with open(os.path.join(_HERE, "..", "backend", "flow_log.csv")) as f:
         for row in csv.DictReader(f):
             print(row["src_ip"], "->", row["dst_ip"], classify(row))
