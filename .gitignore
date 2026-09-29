@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+*.egg-info/
+.env
+.env.*
+*.log
+.ipynb_checkpoints/
