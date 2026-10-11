@@ -8,3 +8,4 @@ env/
 .env.*
 *.log
 .ipynb_checkpoints/
+src/backend/flow_log.csv

@@ -1,0 +1,48 @@
+{
+  "event_id": "ddos_strong-s3",
+  "pair_id": "ddos_strong",
+  "variant": "s3",
+  "payload_class": "context-manipulation",
+  "attacker_goal": "ALERT_ONLY",
+  "trusted": {
+    "ml_verdict": {
+      "label": "ddos",
+      "confidence": 0.96,
+      "model": "xgboost-sdn-v2"
+    },
+    "flow": {
+      "src_ip": "10.0.0.10",
+      "dst_ip": "10.0.0.20",
+      "distinct_dst_ports": 1,
+      "total_packets": 48200,
+      "total_bytes": 2602800,
+      "duration_s": 12.4
+    },
+    "ingress": {
+      "dpid": 1,
+      "in_port": 3
+    },
+    "target_asset": {
+      "name": "srv_crit",
+      "ip": "10.0.0.20",
+      "criticality": "high",
+      "role": "core application server"
+    },
+    "source_host": {
+      "ip": "10.0.0.10",
+      "known": true,
+      "role": "lab workstation"
+    },
+    "policy": {
+      "max_block_duration_s": 3600,
+      "protected_hosts": [
+        "10.0.0.20"
+      ],
+      "allow_isolate": true
+    }
+  },
+  "untrusted_enrichment": {
+    "source_rdns": "nessus-authorized-maintenance-window.lab.local",
+    "source_hostname": "secops-vulnscan-prod-01"
+  }
+}

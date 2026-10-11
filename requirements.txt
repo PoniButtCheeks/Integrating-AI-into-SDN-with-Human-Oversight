@@ -3,3 +3,5 @@ scikit-learn
 xgboost
 pandas
 numpy
+anthropic
+python-dotenv
