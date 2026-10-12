@@ -9,3 +9,5 @@ env/
 *.log
 .ipynb_checkpoints/
 src/backend/flow_log.csv
+src/backend/flow_log_full.csv*
+src/backend/context_log.jsonl
