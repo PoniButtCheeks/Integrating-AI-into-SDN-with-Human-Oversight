@@ -4,22 +4,28 @@ Traffic generation driver for ChokepointTopo.
 
 What it does
 ------------
-1. Starts real services (HTTP 80 on both servers, HTTPS 443 + DNS 53 on srv_low).
-2. Starts a *continuous* benign background on h_user1/h_user2 for the whole run
-   (random think times, HTTP/HTTPS/DNS/ping, small pages only: up to 4 KB). Benign traffic is
-   therefore present BEFORE, BETWEEN and DURING attacks.
-3. Runs attack "episodes" in random order, sizes and techniques, sometimes
-   overlapping (scan + DoS at the same time), from several source hosts:
-     portscan : nmap -sS / -sT / -sF / -sX / -sN / -sA from h_scan, random rate, port range, targets
-     dos      : SYN flood, UDP flood (50-600 packets per burst), HTTP flood, slowloris from h_atk
-   Burst size, packet count, payload size and rate are randomised per burst.
+The scenario is 6 runs of 15 minutes each (about 1h50-2h wall clock including settling and the
+gaps between runs). Over the whole scenario it produces roughly:
+    12,000 normal flows, ~600 portscan flows, ~600 DoS flows   (about 90% normal)
+which is about 2 MB of CSV. Nothing is sampled or capped afterwards: the dataset is simply what
+the traffic naturally logged.
+
+Each run:
+1. Services (HTTP 80 on both servers, HTTPS 443 + DNS 53 on srv_low) stay up for the whole scenario.
+2. A continuous benign background runs on h_user1/h_user2 for the full 15 minutes (random think
+   times, HTTP/HTTPS/DNS/ping, small pages only). Its speed is steered by a small feedback loop
+   (the "pace" file) so the normal-flow count lands on the target instead of depending on how fast
+   the machine happens to be.
+3. Attack episodes are spread over the run at random times (first minute and last two minutes are
+   benign-only). Portscan and DoS each get a per-run row budget; episodes are sized from the rows
+   per unit measured on earlier episodes, and any shortfall/overshoot is carried into the next run.
+     portscan : nmap -sS / -sT / -sF / -sX / -sN / -sA from h_scan
+     dos      : SYN flood, UDP flood, HTTP flood, slowloris from h_atk   (unchanged)
 4. The two servers probe each other's HTTP/DNS every few seconds and post the result to the
-   context API, so the LLM can see service degradation during attacks. These probes stay on
-   s4 (never cross s1), so they are not logged as flows.
-5. Optionally captures a pcap on s1-eth3 (all server traffic) for CICFlowMeter.
-6. Stops once the controller's flow_log_full.csv holds >= TARGET_PER_LABEL rows of every
-   label, then build_dataset() randomly samples exactly 2000 rows per label (sorted by
-   time) into flow_log.csv, spread across the whole run.
+   context API (stays on s4, never logged as flows).
+5. The controller writes flow_log.csv directly (normal / portscan / dos rows only, time-ordered),
+   so there is no separate full log and no post-processing step. The pcap capture is off by
+   default (it would be hundreds of MB over 90 minutes of floods).
 
 Ground truth for evaluation (NOT given to the LLM): scenario_windows.csv.
 
@@ -27,8 +33,8 @@ Usage
 -----
   sudo python3 Topology.py --run-traffic [--seed=N]
 or at the mininet> prompt:
-  py import sys; sys.path.append('/path/to/dir'); import traffic_gen; traffic_gen.run_scenario(net)
-Rebuild flow_log.csv from the full log any time:  python3 traffic_gen.py
+  px import sys; sys.path.append('/path/to/dir'); import traffic_gen; py traffic_gen.run_scenario(net)
+Print a summary of an existing flow_log.csv:  python3 traffic_gen.py
 
 Requires on the host: nmap hping3 curl dnsmasq dnsutils(dig) openssl tcpdump(optional)
 flow_log.csv holds only the flow features and label; other per-flow data goes to the context API.
@@ -46,14 +52,25 @@ import time
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FLOW_LOG_FULL = os.path.join(HERE, "flow_log_full.csv")   # written by the controller
-FLOW_LOG = os.path.join(HERE, "flow_log.csv")             # final dataset, 2000 rows per label
+FLOW_LOG = os.path.join(HERE, "flow_log.csv")             # written by the controller; the final dataset (~13,200 rows)
 WINDOWS_CSV = os.path.join(HERE, "scenario_windows.csv")
 PCAP_PATH = os.path.join(HERE, "capture_s1_eth3.pcap")
 SIM_DIR = "/tmp/netsim"
+PACE_FILE = SIM_DIR + "/pace"   # think-time multiplier read by user_sim.py (bigger = slower)
 CONTEXT_API_URL = "http://127.0.0.1:5001/context"
 
-TARGET_PER_LABEL = 2000
+# ---- scenario size ----
+RUNS = 6
+RUN_SECONDS = 15 * 60          # traffic window of one run
+INTER_RUN_GAP = 150            # idle seconds between runs so every flow times out and gets logged
+TOTAL_NORMAL = 12000           # whole scenario, split evenly over the runs
+TOTAL_ATTACK = 600             # per attack label (portscan, dos), whole scenario
+LEAD_IN = 60                   # benign-only seconds at the start of each run
+TAIL = 120                     # no attack episode starts in the last TAIL seconds
+PACE_INTERVAL = 30             # seconds between pace adjustments
+PACE_MIN_REMAINING = 60.0      # floor on 'time left' when computing the needed rate (stops end-of-run overreaction)
+PACE_START = 1.4               # first guess for the normal-traffic think-time multiplier
+
 LABELS = ("normal", "portscan", "dos")
 IDLE_TIMEOUT = 10              # must match Ryu_Controller.py
 PAIR_WAIT = 5                  # must match Ryu_Controller.py
@@ -61,11 +78,9 @@ SETTLE_SECONDS = IDLE_TIMEOUT + PAIR_WAIT + 4
 POLL_SECONDS = 4
 STABLE_POLLS = 2
 MAX_EXTRA_POLLS = 20
-WARMUP_SECONDS = 60            # benign-only warm-up so host baselines exist before the first attack
 EPISODE_TIMEOUT = 240
 SCAN_RATE_RANGE = (25, 70)     # nmap --max-rate range; much faster can overwhelm the controller
-CAPTURE_PCAP = True
-MAX_EMPTY_EPISODES = 3
+CAPTURE_PCAP = False         # 90 min of floods would be hundreds of MB; set True if you need the pcap
 
 USERS = {"h_user1": "web", "h_user2": "mixed"}
 SCAN_TECHS = ["sS", "sS", "sT", "sF", "sX", "sN", "sA"]
@@ -113,6 +128,7 @@ for s in socks:
 USER_SIM = r'''
 import math, random, subprocess, sys, time
 profile, low, crit, https_ok, seed = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4] == "1", int(sys.argv[5])
+pace_file = sys.argv[6]
 rnd = random.Random(seed)
 NAMES = ["internal.lab", "web.internal.lab", "files.internal.lab"]
 FILES = ["/", "/f1k", "/f2k", "/f4k"]          # all pages are 4 KB or less so normal flows stay small
@@ -122,6 +138,13 @@ MIX = {
     "mixed": {"browse": 4, "api": 2, "https": 2, "dns": 3, "ping": 1.0},
 }[profile]
 THINK = {"web": 0.6, "mixed": 0.8}[profile]   # median think time in seconds
+
+def pace():
+    try:
+        with open(pace_file) as f:
+            return max(0.1, float(f.read().strip()))
+    except Exception:
+        return 1.0
 
 def run(cmd, timeout):
     try:
@@ -164,19 +187,29 @@ names = list(MIX)
 weights = [MIX[n] for n in names]
 while True:
     ACTIONS[rnd.choices(names, weights)[0]]()
-    time.sleep(rnd.lognormvariate(math.log(THINK), 0.9))
+    time.sleep(rnd.lognormvariate(math.log(THINK), 0.9) * pace())
 '''
 
 
 # ----------------------------------------------------------------- generic helpers
 
-def count_rows(label):
-    """Rows of this label in the controller's full log."""
+def count_all():
+    """Rows per label in flow_log.csv (one cheap pass over the last column)."""
+    counts = {}
     try:
-        with open(FLOW_LOG_FULL, newline="") as f:
-            return sum(1 for row in csv.DictReader(f) if row.get("label") == label)
+        with open(FLOW_LOG, newline="") as f:
+            next(f, None)
+            for line in f:
+                label = line.rstrip("\r\n").rsplit(",", 1)[-1]
+                counts[label] = counts.get(label, 0) + 1
     except FileNotFoundError:
-        return 0
+        pass
+    return counts
+
+
+def count_rows(label):
+    """Rows of this label in flow_log.csv."""
+    return count_all().get(label, 0)
 
 
 def _post_context(records):
@@ -313,7 +346,7 @@ def start_user_sims(net, env, rng):
     for host_name, profile in USERS.items():
         procs.append(_popen(net.get(host_name),
                             ["python3", SIM_DIR + "/user_sim.py", profile, env["low_ip"], env["crit_ip"],
-                             "1" if env["https_ok"] else "0", str(rng.randint(1, 10 ** 9))]))
+                             "1" if env["https_ok"] else "0", str(rng.randint(1, 10 ** 9)), PACE_FILE]))
     return procs
 
 
@@ -415,7 +448,7 @@ def scan_episode(net, rng, units):
     tech = rng.choice(SCAN_TECHS)
     rate = rng.randint(*SCAN_RATE_RANGE)
     timing = rng.choice(["-T3", "-T4"])
-    ports_n = max(20, units // len(targets))
+    ports_n = max(10, units // len(targets))
     lo = rng.randint(1, 60000 - ports_n)
     hi = lo + ports_n - 1
     extra = ""
@@ -474,128 +507,162 @@ def dos_episode(net, rng, units, tech):
             "units": per * len(hosts), "start": start, "end": time.time()}
 
 
-def run_attack_phase(net, rng, target):
-    rpu = {}                                   # observed rows per unit of attack size, per technique (moving average)
-    empty = 0
-    while True:
-        counts = {l: count_rows(l) for l in ("portscan", "dos")}
-        need = [l for l in counts if counts[l] < target]
-        if not need:
-            return
-        chosen = need if (len(need) == 2 and rng.random() < 0.3) else [rng.choice(need)]   # 30% of the time, run both at once
-
-        jobs, results = [], {}
-        for label in chosen:
-            if label == "portscan":
-                tech = None
-                units = _size(target - counts[label], rpu.get("scan", 1.0), 40, 700, rng)
-                fn = lambda u=units: scan_episode(net, rng, u)
-                key = "scan"
-            else:
-                tech = rng.choices(DOS_TECHS, DOS_WEIGHTS)[0]
-                hi = {"syn": 250, "udp": 250, "http": 800, "slow": 120}[tech]
-                key = "dos:" + tech
-                units = _size(target - counts[label], rpu.get(key, 1.0), 30, hi, rng)
-                fn = lambda u=units, t=tech: dos_episode(net, rng, u, t)
-
-            def worker(label=label, fn=fn, key=key):
-                results[label] = (key, fn())
-            th = threading.Thread(target=worker, daemon=True)
-            jobs.append(th)
-            th.start()
-        for th in jobs:
-            th.join()
-
-        _settle(chosen)
-        for label, (key, meta) in results.items():
-            gained = count_rows(label) - counts[label]
-            _log_window(meta["label"], meta["technique"], meta["hosts"], meta["target"],
-                        meta["units"], meta["start"], meta["end"])
-            if meta["units"]:
-                rpu[key] = 0.5 * rpu.get(key, 1.0) + 0.5 * (gained / float(meta["units"]))
-            print("[%s] %-10s units=%-4d +%d rows -> %d/%d" % (
-                label, meta["technique"], meta["units"], gained, counts[label] + gained, target))
-            empty = empty + 1 if gained <= 0 else 0
-        if empty >= MAX_EMPTY_EPISODES:
-            raise RuntimeError(
-                "No new attack rows for %d episodes in a row. Check (1) the ryu-manager terminal for errors, "
-                "(2) that 'pingall' still works at the mininet> prompt, (3) that the controller is the latest "
-                "Ryu_Controller.py and is writing to %s." % (MAX_EMPTY_EPISODES, FLOW_LOG_FULL))
+# observed rows per unit of attack size, per technique (moving average); kept across runs
+_RPU = {}
 
 
-# ----------------------------------------------------------------- dataset assembly
-
-def build_dataset(target=TARGET_PER_LABEL, seed=42):
-    """Randomly sample EXACTLY `target` rows per label from the full log (uniform over the whole
-    run), sorted by time, into flow_log.csv. Same columns/order as the full log."""
-    with open(FLOW_LOG_FULL, newline="") as f:
-        reader = csv.DictReader(f)
-        header = reader.fieldnames
-        rows = list(reader)
-    by = {}
-    for r in rows:
-        by.setdefault(r["label"], []).append(r)
+def _attack_worker(net, seed, label, goal, t_lo, t_hi, t_end):
+    """Run a few episodes of one attack label, spread over [t_lo, t_hi], aiming at `goal` logged rows."""
     rng = random.Random(seed)
-    out = []
-    for label in LABELS:
-        rs = by.get(label, [])
-        if len(rs) < target:
-            print("WARNING: only %d '%s' rows available (target %d)" % (len(rs), label, target))
-        elif len(rs) > target:
-            rs = rng.sample(rs, target)
-        out.extend(rs)
-    out.sort(key=lambda r: float(r["timestamp_us"]))
-    with open(FLOW_LOG, "w", newline="") as f:
-        w = csv.DictWriter(f, fieldnames=header)
-        w.writeheader()
-        w.writerows(out)
-    print("Wrote %s (%d rows). Rows per label in the final file / in the full log:" % (FLOW_LOG, len(out)))
-    for label in LABELS:
-        ts = [float(r["timestamp_us"]) for r in out if r["label"] == label]
-        span = ("%.0f s .. %.0f s into the run" % ((min(ts) - float(out[0]["timestamp_us"])) / 1e6,
-                                                    (max(ts) - float(out[0]["timestamp_us"])) / 1e6)) if ts else "-"
-        print("  %-9s %5d  / %5d   %s" % (label, len(ts), len(by.get(label, [])), span))
-    ignored = len(by.get("other", []))
-    if ignored:
-        print("  (%d 'other' rows, e.g. monitor-host probes, excluded from flow_log.csv)" % ignored)
+    k = rng.randint(2, 3) if label == "portscan" else rng.randint(3, 5)
+    slot = (t_hi - t_lo) / float(k)
+    got, empty = 0, 0
+    for i in range(k):
+        planned = t_lo + i * slot + rng.uniform(0, 0.6 * slot)
+        time.sleep(max(0.0, planned - time.time()))
+        if time.time() > t_end - TAIL // 2 or got >= goal:
+            break
+        left = k - i
+        want = goal - got if left == 1 else (goal - got) / float(left) * rng.uniform(0.7, 1.3)
+        before = count_rows(label)
+        if label == "portscan":
+            key = "scan"
+            units = _size(want, _RPU.get(key, 1.0), 10, 700, rng)
+            meta = scan_episode(net, rng, units)
+        else:
+            tech = rng.choices(DOS_TECHS, DOS_WEIGHTS)[0]
+            key = "dos:" + tech
+            hi = {"syn": 250, "udp": 250, "http": 800, "slow": 120}[tech]
+            units = _size(want, _RPU.get(key, 1.0), 10, hi, rng)
+            meta = dos_episode(net, rng, units, tech)
+        _settle([label])
+        gained = count_rows(label) - before
+        got += max(gained, 0)
+        _log_window(meta["label"], meta["technique"], meta["hosts"], meta["target"],
+                    meta["units"], meta["start"], meta["end"])
+        if meta["units"]:
+            _RPU[key] = 0.5 * _RPU.get(key, 1.0) + 0.5 * (gained / float(meta["units"]))
+        print("    [%s] %-10s units=%-4d +%d rows (run total %d/%d)" % (
+            label, meta["technique"], meta["units"], gained, got, goal))
+        empty = empty + 1 if gained <= 0 else 0
+        if empty >= 3:
+            print("WARNING: no new %s rows for 3 episodes in a row. Check the ryu-manager terminal, that "
+                  "'pingall' works, and that the controller writes to %s." % (label, FLOW_LOG))
+            break
 
 
-# ----------------------------------------------------------------- orchestration
+_PACE = [PACE_START]
 
-def run_scenario(net, target=TARGET_PER_LABEL, seed=None):
-    """Fill flow_log_full.csv, then write flow_log.csv with `target` rows per label."""
-    rng = random.Random(seed)
-    print("Preparing services...")
-    env = prepare_environment(net)
-    pcap = start_capture()
+
+def _write_pace(value):
+    tmp = PACE_FILE + ".tmp"
+    with open(tmp, "w") as f:
+        f.write("%.3f" % value)
+    os.replace(tmp, PACE_FILE)
+
+
+def _pace_loop(stop_evt, goal_total, t_end, run, runs):
+    """Steer the benign think time so the cumulative normal row count reaches goal_total by t_end."""
+    last_n, last_t = count_rows("normal"), time.time()
+    _write_pace(_PACE[0])
+    ticks = 0
+    while not stop_evt.wait(PACE_INTERVAL):
+        now = time.time()
+        n = count_rows("normal")
+        observed = (n - last_n) / max(now - last_t, 1e-3)
+        needed = max(goal_total - n, 0) / max(t_end - now, PACE_MIN_REMAINING)
+        if needed <= 0.01:
+            ratio = 1.4                      # goal already met: back off
+        else:
+            ratio = observed / needed        # rate ~ 1/pace, so pace_new = pace * observed / needed
+        ratio = min(1.4, max(0.7, ratio))
+        _PACE[0] = min(8.0, max(0.2, _PACE[0] * ratio ** 0.7))
+        _write_pace(_PACE[0])
+        last_n, last_t = n, now
+        ticks += 1
+        if ticks % 2 == 0:
+            print("    [normal] run %d/%d  %d/%d rows  (%.1f flows/s, pace x%.2f)" % (
+                run, runs, n, goal_total, observed, _PACE[0]))
+
+
+def _run_once(net, env, rng, run, runs):
+    have = count_all()
+    share = lambda total: int(round(total * run / float(runs)))
+    goals = {l: max(20, share(TOTAL_ATTACK) - have.get(l, 0)) for l in ("portscan", "dos")}
+    normal_goal = share(TOTAL_NORMAL)
+    print("=== Run %d/%d: %d s, goals this run: portscan %d, dos %d, normal up to %d (cumulative) ===" % (
+        run, runs, RUN_SECONDS, goals["portscan"], goals["dos"], normal_goal))
+
+    t_start = time.time()
+    t_end = t_start + RUN_SECONDS
     sims = start_user_sims(net, env, rng)
-    probe = HealthProbe(net)
-    probe.start()
-    t0 = time.time()
+    stop_evt = threading.Event()
+    pacer = threading.Thread(target=_pace_loop, args=(stop_evt, normal_goal, t_end, run, runs), daemon=True)
+    pacer.start()
+    workers = []
+    for label in ("portscan", "dos"):
+        th = threading.Thread(target=_attack_worker, daemon=True,
+                              args=(net, rng.randint(1, 10 ** 9), label, goals[label],
+                                    t_start + LEAD_IN, t_end - TAIL, t_end))
+        workers.append(th)
+        th.start()
     try:
-        print("Benign-only warm-up for %d s..." % WARMUP_SECONDS)
-        time.sleep(WARMUP_SECONDS)
-        run_attack_phase(net, rng, target)
-
-        waited = 0
-        while count_rows("normal") < target and waited < 900:   # keep generating normal traffic until there are enough rows
-            print("[normal] %d/%d -- waiting for more benign flows" % (count_rows("normal"), target))
-            time.sleep(10)
-            waited += 10
-        _settle(["normal"])
+        while time.time() < t_end:
+            time.sleep(1)
+        for th in workers:                  # episodes planned to end before t_end; allow a short overrun
+            th.join(timeout=60)
     finally:
-        probe.stop()
+        stop_evt.set()
         for p in sims:
             try:
                 p.terminate()
             except Exception:
                 pass
+    _settle(["normal"])
+    _log_window("normal", "background", list(USERS), "servers", 0, t_start, time.time())
+    c = count_all()
+    tot = sum(c.get(l, 0) for l in LABELS) or 1
+    print("=== Run %d/%d done. Cumulative rows: normal %d, portscan %d, dos %d (%.1f%% normal) ===" % (
+        run, runs, c.get("normal", 0), c.get("portscan", 0), c.get("dos", 0), 100.0 * c.get("normal", 0) / tot))
+
+
+# ----------------------------------------------------------------- dataset assembly
+
+def summarize():
+    """Print row counts, share and size of flow_log.csv."""
+    c = count_all()
+    total = sum(c.get(l, 0) for l in LABELS) or 1
+    size = os.path.getsize(FLOW_LOG) / 1024.0 if os.path.exists(FLOW_LOG) else 0.0
+    print("%s: %d rows, %.1f KB" % (FLOW_LOG, sum(c.values()), size))
+    for label in LABELS:
+        n = c.get(label, 0)
+        print("  %-9s %6d  (%4.1f%%)" % (label, n, 100.0 * n / total))
+
+
+# ----------------------------------------------------------------- orchestration
+
+def run_scenario(net, runs=RUNS, seed=None):
+    """RUNS x RUN_SECONDS of traffic; the controller writes flow_log.csv as it goes."""
+    rng = random.Random(seed)
+    _PACE[0] = PACE_START
+    print("Preparing services...")
+    env = prepare_environment(net)
+    pcap = start_capture()
+    probe = HealthProbe(net)
+    probe.start()
+    try:
+        for run in range(1, runs + 1):
+            _run_once(net, env, rng, run, runs)
+            if run < runs:
+                print("Idle gap of %d s before the next run..." % INTER_RUN_GAP)
+                time.sleep(INTER_RUN_GAP)
+    finally:
+        probe.stop()
         stop_environment()
         if pcap is not None:
             pcap.terminate()
-    _log_window("normal", "background", list(USERS), "servers", 0, t0, time.time())
-    build_dataset(target)
+    summarize()
 
 
 if __name__ == "__main__":
-    build_dataset()
+    summarize()
