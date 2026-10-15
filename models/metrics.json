@@ -1,0 +1,305 @@
+{
+  "trained_on": "flow_log_full.csv (own Mininet/Ryu capture)",
+  "n_flows": 6307,
+  "class_counts": {
+    "normal": 2296,
+    "portscan": 2011,
+    "dos": 2000
+  },
+  "n_episodes": 11,
+  "evaluation": "leave-one-episode-out (train on all but one attack episode, test on it)",
+  "overall_accuracy": 0.9513,
+  "per_episode": [
+    {
+      "episode": "W01",
+      "technique": "scan:sF",
+      "class": "portscan",
+      "n_test": 680,
+      "accuracy": 0.9838,
+      "detection_rate": 1.0,
+      "confusion": {
+        "normal": {
+          "normal": 164,
+          "dos": 11,
+          "portscan": 0
+        },
+        "dos": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 505
+        }
+      }
+    },
+    {
+      "episode": "W02",
+      "technique": "dos:syn",
+      "class": "dos",
+      "n_test": 292,
+      "accuracy": 0.9829,
+      "detection_rate": 1.0,
+      "confusion": {
+        "normal": {
+          "normal": 157,
+          "dos": 5,
+          "portscan": 0
+        },
+        "dos": {
+          "normal": 0,
+          "dos": 130,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        }
+      }
+    },
+    {
+      "episode": "W03",
+      "technique": "scan:sA",
+      "class": "portscan",
+      "n_test": 750,
+      "accuracy": 0.996,
+      "detection_rate": 1.0,
+      "confusion": {
+        "normal": {
+          "normal": 121,
+          "dos": 3,
+          "portscan": 0
+        },
+        "dos": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 626
+        }
+      }
+    },
+    {
+      "episode": "W04",
+      "technique": "dos:http",
+      "class": "dos",
+      "n_test": 558,
+      "accuracy": 0.8226,
+      "detection_rate": 0.8226,
+      "confusion": {
+        "normal": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        },
+        "dos": {
+          "normal": 99,
+          "dos": 459,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        }
+      }
+    },
+    {
+      "episode": "W05",
+      "technique": "scan:sA",
+      "class": "portscan",
+      "n_test": 595,
+      "accuracy": 0.9916,
+      "detection_rate": 1.0,
+      "confusion": {
+        "normal": {
+          "normal": 72,
+          "dos": 5,
+          "portscan": 0
+        },
+        "dos": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 518
+        }
+      }
+    },
+    {
+      "episode": "W06",
+      "technique": "scan:sS",
+      "class": "portscan",
+      "n_test": 445,
+      "accuracy": 0.9843,
+      "detection_rate": 1.0,
+      "confusion": {
+        "normal": {
+          "normal": 76,
+          "dos": 7,
+          "portscan": 0
+        },
+        "dos": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 362
+        }
+      }
+    },
+    {
+      "episode": "W07",
+      "technique": "dos:http",
+      "class": "dos",
+      "n_test": 721,
+      "accuracy": 0.9015,
+      "detection_rate": 0.9015,
+      "confusion": {
+        "normal": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        },
+        "dos": {
+          "normal": 71,
+          "dos": 650,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        }
+      }
+    },
+    {
+      "episode": "W08",
+      "technique": "dos:syn",
+      "class": "dos",
+      "n_test": 343,
+      "accuracy": 0.9242,
+      "detection_rate": 1.0,
+      "confusion": {
+        "normal": {
+          "normal": 111,
+          "dos": 24,
+          "portscan": 2
+        },
+        "dos": {
+          "normal": 0,
+          "dos": 206,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        }
+      }
+    },
+    {
+      "episode": "W09",
+      "technique": "dos:syn",
+      "class": "dos",
+      "n_test": 466,
+      "accuracy": 0.9721,
+      "detection_rate": 1.0,
+      "confusion": {
+        "normal": {
+          "normal": 281,
+          "dos": 13,
+          "portscan": 0
+        },
+        "dos": {
+          "normal": 0,
+          "dos": 172,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        }
+      }
+    },
+    {
+      "episode": "W10",
+      "technique": "dos:udp",
+      "class": "dos",
+      "n_test": 650,
+      "accuracy": 0.9492,
+      "detection_rate": 0.9274,
+      "confusion": {
+        "normal": {
+          "normal": 502,
+          "dos": 24,
+          "portscan": 0
+        },
+        "dos": {
+          "normal": 9,
+          "dos": 115,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        }
+      }
+    },
+    {
+      "episode": "W11",
+      "technique": "dos:syn",
+      "class": "dos",
+      "n_test": 807,
+      "accuracy": 0.9579,
+      "detection_rate": 0.9888,
+      "confusion": {
+        "normal": {
+          "normal": 685,
+          "dos": 33,
+          "portscan": 0
+        },
+        "dos": {
+          "normal": 1,
+          "dos": 88,
+          "portscan": 0
+        },
+        "portscan": {
+          "normal": 0,
+          "dos": 0,
+          "portscan": 0
+        }
+      }
+    }
+  ],
+  "confidence": {
+    "correct_conf_mean": 0.9862,
+    "wrong_conf_mean": 0.8567,
+    "share_conf_ge_0.8": 0.9661,
+    "share_conf_ge_0.9": 0.9394,
+    "n_predictions": 6307
+  },
+  "feature_importance": {
+    "dst_port": 0.0846,
+    "duration": 0.0243,
+    "total_packets": 0.1246,
+    "total_bytes": 0.4676,
+    "avg_packet_size": 0.2284,
+    "packets_per_sec": 0.0274,
+    "bytes_per_sec": 0.0431
+  }
+}

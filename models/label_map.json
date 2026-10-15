@@ -1,14 +1,4 @@
 {
-  "label_names": [
-    "normal",
-    "ddos",
-    "port_scan"
-  ],
-  "code_to_label": {
-    "0": "normal",
-    "1": "ddos",
-    "2": "port_scan"
-  },
   "feature_names": [
     "dst_port",
     "duration",
@@ -17,5 +7,25 @@
     "avg_packet_size",
     "packets_per_sec",
     "bytes_per_sec"
-  ]
+  ],
+  "csv_column_names": [
+    "dst_port",
+    "duration_us",
+    "total_packets",
+    "total_bytes",
+    "avg_packet_size",
+    "packets_per_sec",
+    "bytes_per_sec"
+  ],
+  "label_names": [
+    "normal",
+    "dos",
+    "portscan"
+  ],
+  "code_to_label": {
+    "0": "normal",
+    "1": "dos",
+    "2": "portscan"
+  },
+  "note": "duration == the controller's duration_us column (microseconds). Trained on our own Mininet/Ryu capture, NOT on CICIDS2017."
 }
