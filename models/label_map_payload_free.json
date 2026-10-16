@@ -1,0 +1,26 @@
+{
+  "feature_names": [
+    "dst_port",
+    "duration_us",
+    "total_packets",
+    "packets_per_sec"
+  ],
+  "csv_column_names": [
+    "dst_port",
+    "duration_us",
+    "total_packets",
+    "packets_per_sec"
+  ],
+  "label_names": [
+    "normal",
+    "dos",
+    "portscan"
+  ],
+  "code_to_label": {
+    "0": "normal",
+    "1": "dos",
+    "2": "portscan"
+  },
+  "trained_on": "network_capture_v2 flow_log.csv (all 6 runs, 13,188 flows)",
+  "note": "duration == the controller's duration_us column (microseconds)."
+}

@@ -1,0 +1,354 @@
+{
+  "dataset": "network_capture_v2",
+  "eval_protocol": "leave-one-run-out (hold out one whole run at a time)",
+  "accuracy_is_misleading": "90.9% normal, so predicting 'normal' always scores 0.909",
+  "feature_importance_full": {
+    "dst_port": 0.062,
+    "duration_us": 0.007,
+    "total_packets": 0.533,
+    "total_bytes": 0.202,
+    "avg_packet_size": 0.191,
+    "packets_per_sec": 0.004,
+    "bytes_per_sec": 0.001
+  },
+  "feature_importance_payload_free": {
+    "dst_port": 0.211,
+    "duration_us": 0.019,
+    "total_packets": 0.764,
+    "packets_per_sec": 0.007
+  },
+  "ablation_results": {
+    "A  all 7": {
+      "DecisionTree": {
+        "accuracy": 0.9883,
+        "macro_f1": 0.9535,
+        "recall": {
+          "normal": 0.9974,
+          "dos": 0.8769,
+          "portscan": 0.9185
+        },
+        "fp_rate_on_normal": 0.0026,
+        "confusion": [
+          [
+            11955,
+            30,
+            1
+          ],
+          [
+            74,
+            527,
+            0
+          ],
+          [
+            49,
+            0,
+            552
+          ]
+        ]
+      },
+      "RandomForest": {
+        "accuracy": 0.987,
+        "macro_f1": 0.9465,
+        "recall": {
+          "normal": 0.9987,
+          "dos": 0.822,
+          "portscan": 0.9185
+        },
+        "fp_rate_on_normal": 0.0013,
+        "confusion": [
+          [
+            11970,
+            14,
+            2
+          ],
+          [
+            107,
+            494,
+            0
+          ],
+          [
+            49,
+            0,
+            552
+          ]
+        ]
+      },
+      "XGBoost": {
+        "accuracy": 0.9873,
+        "macro_f1": 0.9483,
+        "recall": {
+          "normal": 0.9986,
+          "dos": 0.8319,
+          "portscan": 0.9185
+        },
+        "fp_rate_on_normal": 0.0014,
+        "confusion": [
+          [
+            11969,
+            16,
+            1
+          ],
+          [
+            101,
+            500,
+            0
+          ],
+          [
+            49,
+            0,
+            552
+          ]
+        ]
+      }
+    },
+    "B  no dst_port": {
+      "DecisionTree": {
+        "accuracy": 0.9874,
+        "macro_f1": 0.95,
+        "recall": {
+          "normal": 0.9967,
+          "dos": 0.8702,
+          "portscan": 0.9185
+        },
+        "fp_rate_on_normal": 0.0033,
+        "confusion": [
+          [
+            11947,
+            39,
+            0
+          ],
+          [
+            78,
+            523,
+            0
+          ],
+          [
+            49,
+            0,
+            552
+          ]
+        ]
+      },
+      "RandomForest": {
+        "accuracy": 0.9887,
+        "macro_f1": 0.9543,
+        "recall": {
+          "normal": 0.9987,
+          "dos": 0.8586,
+          "portscan": 0.9185
+        },
+        "fp_rate_on_normal": 0.0013,
+        "confusion": [
+          [
+            11971,
+            14,
+            1
+          ],
+          [
+            85,
+            516,
+            0
+          ],
+          [
+            49,
+            0,
+            552
+          ]
+        ]
+      },
+      "XGBoost": {
+        "accuracy": 0.9873,
+        "macro_f1": 0.9483,
+        "recall": {
+          "normal": 0.9987,
+          "dos": 0.8303,
+          "portscan": 0.9185
+        },
+        "fp_rate_on_normal": 0.0013,
+        "confusion": [
+          [
+            11970,
+            15,
+            1
+          ],
+          [
+            102,
+            499,
+            0
+          ],
+          [
+            49,
+            0,
+            552
+          ]
+        ]
+      }
+    },
+    "C  payload-free": {
+      "DecisionTree": {
+        "accuracy": 0.9866,
+        "macro_f1": 0.9458,
+        "recall": {
+          "normal": 0.9955,
+          "dos": 0.8053,
+          "portscan": 0.99
+        },
+        "fp_rate_on_normal": 0.0045,
+        "confusion": [
+          [
+            11932,
+            53,
+            1
+          ],
+          [
+            117,
+            484,
+            0
+          ],
+          [
+            6,
+            0,
+            595
+          ]
+        ]
+      },
+      "RandomForest": {
+        "accuracy": 0.9871,
+        "macro_f1": 0.9476,
+        "recall": {
+          "normal": 0.9962,
+          "dos": 0.8037,
+          "portscan": 0.99
+        },
+        "fp_rate_on_normal": 0.0038,
+        "confusion": [
+          [
+            11940,
+            45,
+            1
+          ],
+          [
+            118,
+            483,
+            0
+          ],
+          [
+            6,
+            0,
+            595
+          ]
+        ]
+      },
+      "XGBoost": {
+        "accuracy": 0.9886,
+        "macro_f1": 0.9538,
+        "recall": {
+          "normal": 0.9969,
+          "dos": 0.822,
+          "portscan": 0.99
+        },
+        "fp_rate_on_normal": 0.0031,
+        "confusion": [
+          [
+            11949,
+            36,
+            1
+          ],
+          [
+            107,
+            494,
+            0
+          ],
+          [
+            6,
+            0,
+            595
+          ]
+        ]
+      }
+    },
+    "D  no dst_port + payload-free": {
+      "DecisionTree": {
+        "accuracy": 0.9402,
+        "macro_f1": 0.6115,
+        "recall": {
+          "normal": 0.9936,
+          "dos": 0.812,
+          "portscan": 0.005
+        },
+        "fp_rate_on_normal": 0.0064,
+        "confusion": [
+          [
+            11909,
+            50,
+            27
+          ],
+          [
+            113,
+            488,
+            0
+          ],
+          [
+            598,
+            0,
+            3
+          ]
+        ]
+      },
+      "RandomForest": {
+        "accuracy": 0.9403,
+        "macro_f1": 0.6112,
+        "recall": {
+          "normal": 0.9942,
+          "dos": 0.802,
+          "portscan": 0.005
+        },
+        "fp_rate_on_normal": 0.0058,
+        "confusion": [
+          [
+            11916,
+            43,
+            27
+          ],
+          [
+            119,
+            482,
+            0
+          ],
+          [
+            598,
+            0,
+            3
+          ]
+        ]
+      },
+      "XGBoost": {
+        "accuracy": 0.9436,
+        "macro_f1": 0.6185,
+        "recall": {
+          "normal": 0.9968,
+          "dos": 0.8236,
+          "portscan": 0.0017
+        },
+        "fp_rate_on_normal": 0.0032,
+        "confusion": [
+          [
+            11948,
+            26,
+            12
+          ],
+          [
+            106,
+            495,
+            0
+          ],
+          [
+            600,
+            0,
+            1
+          ]
+        ]
+      }
+    }
+  }
+}

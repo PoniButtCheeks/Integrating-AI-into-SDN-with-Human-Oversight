@@ -1,7 +1,7 @@
 {
   "feature_names": [
     "dst_port",
-    "duration",
+    "duration_us",
     "total_packets",
     "total_bytes",
     "avg_packet_size",
@@ -27,5 +27,6 @@
     "1": "dos",
     "2": "portscan"
   },
-  "note": "duration == the controller's duration_us column (microseconds). Trained on our own Mininet/Ryu capture, NOT on CICIDS2017."
+  "trained_on": "network_capture_v2 flow_log.csv (all 6 runs, 13,188 flows)",
+  "note": "duration == the controller's duration_us column (microseconds)."
 }
