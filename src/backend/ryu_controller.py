@@ -4,10 +4,11 @@ RYU controller: forwarding + flow recording + context collection.
 
 What it writes
 --------------
-flow_log_full.csv   
-one row per *bidirectional* conversation (forward and reverse OpenFlow entries are merged), uncapped, 
+flow_log.csv
+one row per *bidirectional* conversation (forward and reverse OpenFlow entries are merged),
 ONLY the original columns (protocol, ports, duration, packets, bytes, rates, avg size, label).
-traffic_gen.py turns this into flow_log.csv with exactly 2000 rows per label.
+Rows are written in time order, and only for the labels normal / portscan / dos (traffic from
+any other host is not logged). This is the final dataset; there is no separate "full" log.
 
 What it pushes to the context API (context_api.py)
 --------------------------------------------------
@@ -50,7 +51,7 @@ FEATURE_ORDER = [
 ]
 # Everything else about a flow (fwd/bwd split, flags, conn_state, host context) doesn't go in the CSV.
 # It's sent to the context API as kind=flow_detail instead.
-CSV_LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "flow_log_full.csv")
+CSV_LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "flow_log.csv")
 CSV_COLUMNS = ["timestamp_us", "dpid", "src_ip", "dst_ip"] + FEATURE_ORDER + ["label"]
 
 # Ground-truth labels, based on which host the traffic came from. Matches THE-TOPOLOGY.py.
@@ -510,6 +511,8 @@ class FlowRecorder(app_manager.RyuApp):
             "avg_packet_size": total_b / max(total_p, 1),
             "label": label_flow(fwd["src"], fwd["dst"]),
         }
+        if row["label"] == "other":
+            return                               # only normal / portscan / dos belong in the dataset
         if not self._log_to_csv(row, fwd["start"] * 1e6):
             return
 
