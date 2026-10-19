@@ -249,7 +249,7 @@ def handle(row, args, last_seen):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--csv", help="the controller's flow_log_full.csv")
+    p.add_argument("--csv", help="the controller's flow_log.csv")
     p.add_argument("--no-warning", action="store_true")
     p.add_argument("--inline-untrusted", action="store_true")
     p.add_argument("--cleanup", action="store_true")
