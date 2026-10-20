@@ -211,9 +211,12 @@ def apply(action, rec, enr):
         iface = "%s-eth%s" % (sw, port)
         sh(["ovs-vsctl", "set", "interface", iface,
             "ingress_policing_rate=100", "ingress_policing_burst=10"])
-        threading.Timer(dur, sh, args=[[
+        # Daemon, so Ctrl+C exits at once; --cleanup resets any limit still on.
+        t = threading.Timer(dur, sh, args=[[
             "ovs-vsctl", "set", "interface", iface,
-            "ingress_policing_rate=0", "ingress_policing_burst=0"]]).start()
+            "ingress_policing_rate=0", "ingress_policing_burst=0"]])
+        t.daemon = True
+        t.start()
     else:
         print("    %s: no network change" % action)
 
