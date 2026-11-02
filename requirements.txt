@@ -1,8 +1,8 @@
-joblib
-scikit-learn
-xgboost
-pandas
-numpy
-anthropic
-python-dotenv
-requests
+anthropic==1.11.0
+joblib==1.6.0
+numpy==2.5.3
+pandas==3.0.6
+python-dotenv==1.2.3
+requests==2.34.2
+scikit-learn==1.9.1
+xgboost==3.4.1

@@ -64,6 +64,8 @@ python3 -m venv ~/venvs/ml
 ~/venvs/ml/bin/pip install -r ~/sdnproj/requirements.txt
 ```
 
+`requirements.txt` pins the exact versions the project was tested with (for example `anthropic==1.11.0`, `xgboost==3.4.1`, `scikit-learn==1.9.1`).
+
 ### 3.4 Ryu environment (controller and context API)
 
 Ryu 4.34 does not install cleanly on modern Python. It needs Python 3.11, an older build toolchain, and a small launcher fix. These steps use `uv`, a Python package manager that can also download the right Python version. Install it, then open a new terminal so the `uv` command is found:
